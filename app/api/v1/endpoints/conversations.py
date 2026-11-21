@@ -1,10 +1,10 @@
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Query, status
 from sqlalchemy import or_, select
 
 from app.api.deps import CurrentUser, SessionDep
-from app.crud.conversation import create_system_message, end_conversation, get_or_create, require_member, to_read
+from app.crud.conversation import end_conversation, get_or_create, require_member, to_read
 from app.crud.message import create_message, list_messages, to_read as message_to_read
-from app.models import Conversation, Message, User
+from app.models import Conversation
 from app.schemas.conversation import ConversationCreate, ConversationRead
 from app.schemas.message import MessageCreate, MessagePage, MessageRead
 from app.services.chat import publish_new_message
@@ -69,56 +69,12 @@ def end_conversation_endpoint(
     """End a conversation. If both users have ended it, the conversation is deleted.
     Otherwise, a system message notifies the other user."""
     conversation = require_member(db, conversation_id, current_user.id)
-    peer_id = (
-        conversation.user_high_id if conversation.user_low_id == current_user.id
-        else conversation.user_low_id
-    )
-    peer = db.get(User, peer_id)
-    peer_name = peer.display_name if peer else "User"
-
-    # Check if both already ended (conversation may already be deleted)
-    if conversation.ended_by == 3:
-        raise HTTPException(status_code=400, detail="This conversation has already been ended by both users")
-
-    # Check if this user already ended
-    # Bit 1 (value=1) for user_low_id, Bit 2 (value=2) for user_high_id
-    bit = 2 if current_user.id == conversation.user_high_id else 1
-    if conversation.ended_by & bit:
-        raise HTTPException(status_code=400, detail="You already ended this conversation")
-
-    # Set the bit for this user
-    conversation.ended_by |= bit
-
-    # Create a system message notifying the other user
-    system_msg = create_system_message(
-        db,
-        conversation_id,
-        f"🔔 {current_user.display_name} has ended this conversation.",
-    )
-    db.flush()
-
-    # If both users have ended, delete the conversation and messages
-    if conversation.ended_by == 3:
-        db.query(Message).filter(Message.conversation_id == conversation_id).delete(
-            synchronize_session='fetch'
-        )
-        db.delete(conversation)
-        db.commit()
-    else:
-        db.commit()
-
-    # Broadcast the system message to both users
     recipients = {conversation.user_low_id, conversation.user_high_id}
-    system_msg_read = message_to_read(system_msg)
-    background.add_task(publish_new_message, recipients, system_msg_read)
-
-    # If conversation was deleted, notify about deletion
-    if conversation.ended_by == 3:
-        background.add_task(
-            publish_conversation_deleted,
-            recipients,
-            conversation_id,
-        )
+    message = end_conversation(db, conversation, current_user)
+    if message is None:
+        background.add_task(publish_conversation_deleted, recipients, conversation_id)
+    else:
+        background.add_task(publish_new_message, recipients, message_to_read(message))
 
 
 async def publish_conversation_deleted(recipient_ids: set[int], conversation_id: int) -> None:

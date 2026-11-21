@@ -110,7 +110,7 @@ Copy the printed value into `JWT_SECRET_KEY=...` in `.env`. **Never commit `.env
 uvicorn app.main:app --reload
 ```
 
-FastAPI creates `msnmessenger_reborn.db`, creates any missing tables, and adds the conversation end-tracking column to older databases on startup. To initialize or upgrade the schema manually, run `python -m app.db.init_db`. **No `CREATE DATABASE` command is required.**
+FastAPI creates `msnmessenger_reborn.db`, creates any missing tables, and upgrades older databases to support conversation end tracking and system messages. To initialize or upgrade the schema manually, run `python -m app.db.init_db`. **No `CREATE DATABASE` command is required.**
 
 **4. Open:**
 

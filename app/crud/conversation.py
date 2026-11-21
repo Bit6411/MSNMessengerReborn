@@ -1,9 +1,9 @@
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import Conversation, Message, StatusPost, User
+from app.models import Attachment, Conversation, Message, StatusPost, User
 from app.schemas.conversation import ConversationCreate, ConversationRead
 
 
@@ -66,29 +66,30 @@ def get_or_create(db: Session, user_id: int, data: ConversationCreate) -> Conver
     return result
 
 
-def end_conversation(db: Session, conversation_id: int, user_id: int) -> None:
-    """Mark a user as having ended the conversation. If both users have ended,
-    delete the conversation and all its messages."""
-    conversation = require_member(db, conversation_id, user_id)
-    # Bit 1 (value=1) for user_low_id, Bit 2 (value=2) for user_high_id
-    bit = 2 if user_id == conversation.user_high_id else 1
-    
-    # Check if this user already ended
-    if conversation.ended_by & bit:
+def end_conversation(db: Session, conversation: Conversation, user: User) -> Message | None:
+    conversation_id = conversation.id
+    bit = 2 if user.id == conversation.user_high_id else 1
+    # Set the participant's bit atomically so simultaneous requests cannot overwrite it.
+    result = db.execute(
+        update(Conversation)
+        .where(Conversation.id == conversation_id, Conversation.ended_by.bitwise_and(bit) == 0)
+        .values(ended_by=Conversation.ended_by.bitwise_or(bit))
+    )
+    if result.rowcount == 0:
         raise HTTPException(status_code=400, detail="You already ended this conversation")
-    
-    # Set the bit for this user
-    conversation.ended_by |= bit
-    
-    # If both users have ended (bitmask == 3), delete the conversation
+    db.refresh(conversation, ["ended_by"])
     if conversation.ended_by == 3:
-        db.query(Message).filter(Message.conversation_id == conversation_id).delete(
-            synchronize_session='fetch'
-        )
+        db.execute(delete(Attachment).where(Attachment.conversation_id == conversation_id))
+        db.execute(delete(Message).where(Message.conversation_id == conversation_id))
         db.delete(conversation)
         db.commit()
-    else:
-        db.commit()
+        return None
+
+    message = create_system_message(
+        db, conversation_id, f"🔔 {user.display_name} has ended this conversation.",
+    )
+    db.commit()
+    return message
 
 
 def create_system_message(db: Session, conversation_id: int, text: str) -> Message:
