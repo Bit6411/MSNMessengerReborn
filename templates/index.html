@@ -148,16 +148,22 @@
             <fieldset class="status-options">
               <legend class="label-small">State</legend>
               <label class="status-option">
-                <input type="radio" name="availability" value="online" checked>
-                <span class="presence live" aria-hidden="true"></span>Online
+                <input class="sr-only" type="radio" name="availability" value="online" checked>
+                <span class="status-option-row">
+                  <span class="presence live" aria-hidden="true"></span>Online
+                </span>
               </label>
               <label class="status-option">
-                <input type="radio" name="availability" value="idle">
-                <span class="presence idle" aria-hidden="true"></span>Idle
+                <input class="sr-only" type="radio" name="availability" value="idle">
+                <span class="status-option-row">
+                  <span class="presence idle" aria-hidden="true"></span>Idle
+                </span>
               </label>
               <label class="status-option">
-                <input type="radio" name="availability" value="dnd">
-                <span class="presence dnd" aria-hidden="true"></span>Do Not Disturb
+                <input class="sr-only" type="radio" name="availability" value="dnd">
+                <span class="status-option-row">
+                  <span class="presence dnd" aria-hidden="true"></span>Do Not Disturb
+                </span>
               </label>
             </fieldset>
             <label class="label-small" for="status-description">Pulse text (optional)</label>

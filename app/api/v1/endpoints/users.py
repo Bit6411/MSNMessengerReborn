@@ -118,15 +118,17 @@ def search_users(
         return SearchResponse(count=0, results=[])
 
     candidates = union_all(
-        select(UserStatus.user_id, UserStatus.description.label("text"), literal(0).label("post_id"))
-        .where(UserStatus.description != ""),
-        select(StatusPost.author_id, StatusPost.text, StatusPost.id),
+        select(
+            UserStatus.user_id, UserStatus.description.label("text"),
+            literal(1).label("is_current"), literal(0).label("post_id"),
+        ).where(UserStatus.description != ""),
+        select(StatusPost.author_id, StatusPost.text, literal(0), StatusPost.id),
     ).subquery()
     rows = db.execute(
         select(User.id, User.username, User.display_name, User.bio, candidates.c.text)
         .join(candidates, candidates.c.user_id == User.id)
         .where(User.is_active.is_(True), User.id != current_user.id)
-        .order_by((candidates.c.post_id != 0), candidates.c.post_id.desc())
+        .order_by(candidates.c.is_current.desc(), candidates.c.post_id.desc())
     )
     matches = {}
     for row in rows:

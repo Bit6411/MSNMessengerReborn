@@ -432,7 +432,7 @@ $('status-form').addEventListener('submit', async (event) => {
     const status = await api('/users/me/status', {
       method: 'PUT',
       body: JSON.stringify({
-        availability: $('status-form').elements.availability.value,
+        availability: event.currentTarget.elements.availability.value,
         description: $('status-description').value,
       }),
     });
