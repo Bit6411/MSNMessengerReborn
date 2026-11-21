@@ -23,7 +23,7 @@ function hideBuddyStatus() {
 function positionBuddyStatus() {
   if (!statusAnchor) return;
   const row = statusAnchor.getBoundingClientRect();
-  const sidebar = statusAnchor.closest('.sidebar').getBoundingClientRect();
+  const sidebar = statusAnchor.closest('.orbital-ring').getBoundingClientRect();
   if (row.bottom <= Math.max(sidebar.top, 0) || row.top >= Math.min(sidebar.bottom, window.innerHeight)) {
     hideBuddyStatus();
     return;
@@ -312,7 +312,7 @@ function connectWebSocket() {
           state.nextOffset = null;
           $('chat-active').hidden = true;
           $('chat-placeholder').hidden = false;
-          $('chat-title').textContent = '💬 Ping! Messenger';
+          $('chat-title').textContent = '💬 MSNReborn';
           $('messages').replaceChildren();
           showNotice('This conversation has been ended by both users.');
         }
@@ -464,5 +464,30 @@ $('buddy-start-chat').addEventListener('click', () => {
 
 /* ---------- End conversation button ---------- */
 $('end-conversation').addEventListener('click', endConversation);
+
+/* ---------- Dark / Light theme toggle ---------- */
+function applyTheme(theme) {
+  const isDark = theme === 'dark';
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  localStorage.setItem('theme', theme);
+  const toggleBtn = $('theme-toggle');
+  if (toggleBtn) toggleBtn.textContent = isDark ? '◑' : '◐';
+}
+
+// Initialize theme from localStorage or system preference
+(function initTheme() {
+  const saved = localStorage.getItem('theme');
+  if (saved) {
+    applyTheme(saved);
+  } else {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(prefersDark ? 'dark' : 'light');
+  }
+})();
+
+$('theme-toggle').addEventListener('click', () => {
+  const current = localStorage.getItem('theme') || 'light';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
 
 if (state.token) boot();
