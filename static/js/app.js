@@ -80,7 +80,7 @@ window.addEventListener('scroll', positionBuddyStatus, true);
 function renderMyStatus({ availability, description }) {
   $('my-status-dot').className = `presence ${statusClasses[availability]}`;
   $('my-status-label').textContent = statusLabels[availability];
-  $('status-availability').value = availability;
+  $('status-form').elements.availability.value = availability;
   $('status-description').value = description;
   $('my-status-description').textContent = description;
   $('my-status-description').hidden = !description;
@@ -378,7 +378,7 @@ $('status-form').addEventListener('submit', async (event) => {
     const status = await api('/users/me/status', {
       method: 'PUT',
       body: JSON.stringify({
-        availability: $('status-availability').value,
+        availability: event.currentTarget.elements.availability.value,
         description: $('status-description').value,
       }),
     });

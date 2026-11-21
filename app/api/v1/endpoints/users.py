@@ -1,7 +1,6 @@
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import literal, select, union_all
 from sqlalchemy.dialects.sqlite import insert
-from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, SessionDep
 from app.models import Conversation, StatusPost, User, UserStatus
@@ -114,19 +113,30 @@ def search_users(
 ):
     """Search users by status keywords. Friends (users with existing conversations)
     are returned first, followed by non-friends."""
-    if not q.strip():
+    keywords = q.casefold().split()
+    if not keywords:
         return SearchResponse(count=0, results=[])
 
-    matches = db.execute(
-        select(User, UserStatus.description)
-        .join(UserStatus, UserStatus.user_id == User.id)
-        .where(
-            User.is_active.is_(True),
-            User.id != current_user.id,
-            UserStatus.description != "",
-            *(UserStatus.description.icontains(keyword, autoescape=True) for keyword in q.split()),
-        )
-    ).all()
+    candidates = union_all(
+        select(
+            UserStatus.user_id, UserStatus.description.label("text"),
+            literal(1).label("is_current"), literal(0).label("post_id"),
+        ).where(UserStatus.description != ""),
+        select(StatusPost.author_id, StatusPost.text, literal(0), StatusPost.id),
+    ).subquery()
+    rows = db.execute(
+        select(User.id, User.username, User.display_name, User.bio, candidates.c.text)
+        .join(candidates, candidates.c.user_id == User.id)
+        .where(User.is_active.is_(True), User.id != current_user.id)
+        .order_by(candidates.c.is_current.desc(), candidates.c.post_id.desc())
+    )
+    matches = {}
+    for row in rows:
+        if row.id in matches:
+            continue
+        text = row.text.casefold()
+        if all(keyword in text for keyword in keywords):
+            matches[row.id] = row
     if not matches:
         return SearchResponse(count=0, results=[])
 
@@ -145,7 +155,7 @@ def search_users(
 
     # Build results: friends first, then non-friends
     results: list[SearchResultItem] = []
-    for user, description in matches:
+    for user in matches.values():
         is_friend = user.id in friend_ids
         results.append(
             SearchResultItem(
@@ -154,7 +164,7 @@ def search_users(
                 display_name=user.display_name,
                 bio=user.bio,
                 is_friend=is_friend,
-                matching_status=description,
+                matching_status=user.text,
             )
         )
 
