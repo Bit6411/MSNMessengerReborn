@@ -1,5 +1,8 @@
 from io import BytesIO
 
+import pytest
+from starlette.websockets import WebSocketDisconnect
+
 from .conftest import make_user
 
 
@@ -123,9 +126,17 @@ def test_live_websocket_presence_and_send(client):
     direct_id = client.post("/api/v1/conversations", headers=alice, json={"recipient_id": bob_id}).json()["id"]
     alice_token = alice["Authorization"].split(" ")[1]
     bob_token = bob["Authorization"].split(" ")[1]
-    with client.websocket_connect(f"/api/v1/ws?token={bob_token}") as bob_ws:
+    socket_url = "ws://messenger.test:8080/api/v1/ws"
+    browser_headers = {"Origin": "http://messenger.test:8080"}
+    with pytest.raises(WebSocketDisconnect) as rejected:
+        with client.websocket_connect(
+            f"{socket_url}?token={bob_token}", headers={"Origin": "http://other.test"}
+        ):
+            pass
+    assert rejected.value.code == 1008
+    with client.websocket_connect(f"{socket_url}?token={bob_token}", headers=browser_headers) as bob_ws:
         assert bob_ws.receive_json()["count"] == 1
-        with client.websocket_connect(f"/api/v1/ws?token={alice_token}") as alice_ws:
+        with client.websocket_connect(f"{socket_url}?token={alice_token}", headers=browser_headers) as alice_ws:
             assert bob_ws.receive_json()["count"] == 2
             assert alice_ws.receive_json()["count"] == 2
             online = client.get("/api/v1/users/online", headers=alice).json()

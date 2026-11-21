@@ -1,7 +1,7 @@
 import asyncio
 from collections import defaultdict
 
-from fastapi import WebSocket
+from fastapi import WebSocket, WebSocketDisconnect
 
 
 class PresenceManager:
@@ -43,7 +43,7 @@ class PresenceManager:
         for websocket in sockets:
             try:
                 await websocket.send_json(message)
-            except (OSError, RuntimeError):
+            except (OSError, RuntimeError, WebSocketDisconnect):
                 # The owning receive loop will remove a disconnected socket.
                 pass
 
