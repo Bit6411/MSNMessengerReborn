@@ -8,132 +8,230 @@
   <script src="{{ url_for('static', path='/js/app.js') }}" defer></script>
 </head>
 <body>
-  <div class="desktop">
-    <header class="topbar">
-      <div class="brand"><span class="brand-mark">✳</span> Ping! <span class="brand-muted">messenger</span></div>
-      <span class="top-pill">Your internet, your friends.</span>
-    </header>
 
-    <section id="auth-panel" class="auth-shell">
-      <div class="window auth-window">
-        <div class="window-bar"><span>🔐 Sign in to Ping!</span><span>─ □ ×</span></div>
-        <div class="window-body">
-          <h1>Welcome back 👋</h1>
-          <p>Bring back the buddy list, the nudges and the late-night chats.</p>
-          <form id="login-form">
-            <label>Username <input name="username" required autocomplete="username" placeholder="zaki"></label>
-            <label>Password <input name="password" type="password" required autocomplete="current-password" placeholder="••••••••"></label>
-            <button class="primary" type="submit">Sign in</button>
+  <!-- ===== AUTH PORTAL ===== -->
+  <section id="auth-panel" class="portal">
+    <div class="portal-depth">
+      <div class="portal-core">
+        <div class="core-ring ring-outer"></div>
+        <div class="core-ring ring-mid"></div>
+        <div class="core-ring ring-inner"></div>
+        <div class="core-symbol">◈</div>
+      </div>
+      <h1 class="portal-title">MSNReborn</h1>
+      <p class="portal-subtitle">Where conversations orbit.</p>
+
+      <div class="portal-forms">
+        <form id="login-form" class="flux-form">
+          <div class="flux-field">
+            <input name="username" required autocomplete="username" placeholder="who are you" spellcheck="false">
+          </div>
+          <div class="flux-field">
+            <input name="password" type="password" required autocomplete="current-password" placeholder="passphrase">
+          </div>
+          <button class="flux-btn" type="submit">Enter the orbit</button>
+        </form>
+
+        <div class="flux-divider">
+          <span>first time here?</span>
+        </div>
+
+        <details class="flux-reveal">
+          <summary>Claim your node</summary>
+          <form id="register-form" class="flux-form">
+            <div class="flux-field">
+              <input name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+" autocomplete="username" placeholder="choose a handle" spellcheck="false">
+            </div>
+            <div class="flux-field">
+              <input name="display_name" required maxlength="60" autocomplete="nickname" placeholder="how you'll appear">
+            </div>
+            <div class="flux-field">
+              <input name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="passphrase">
+            </div>
+            <button class="flux-btn" type="submit">Ignite</button>
           </form>
-          <div class="separator">New here?</div>
-          <details>
-            <summary>Create an account</summary>
-            <form id="register-form">
-              <label>Username <input name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+" autocomplete="username"></label>
-              <label>Display name <input name="display_name" required maxlength="60" autocomplete="nickname"></label>
-              <label>Password <input name="password" type="password" required minlength="8" autocomplete="new-password"></label>
-              <button type="submit">Create my Ping! account</button>
-            </form>
-          </details>
-          <p class="muted small">Demo application • Register two accounts to test live chat—no database server needed.</p>
+        </details>
+
+        <p class="flux-note">Demo • Register two accounts to test live chat—no database server needed.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== APP CONSTELLATION ===== -->
+  <section id="app-panel" class="constellation" hidden>
+
+    <!-- Top control strip -->
+    <div class="control-strip">
+      <div class="strip-left">
+        <span class="app-mark">◈</span>
+        <span class="app-name">MSNReborn</span>
+      </div>
+      <div class="strip-right">
+        <span id="connection-status" class="pulse-badge">Offline</span>
+        <button id="theme-toggle" class="orbit-btn" type="button" title="Toggle dark/light">◐</button>
+        <button id="logout" class="orbit-btn exit" type="button" title="Sign out">✕</button>
+      </div>
+    </div>
+
+    <!-- Left: Orbital ring (sidebar replacement) -->
+    <nav class="orbital-ring">
+
+      <!-- Your core node -->
+      <div class="core-node">
+        <div class="node-avatar">
+          <div class="avatar-glow"></div>
+          <span class="avatar-char">◈</span>
+        </div>
+        <div class="node-info">
+          <strong id="my-name">...</strong>
+          <span class="muted" id="my-handle">@...</span>
         </div>
       </div>
-    </section>
 
-    <section id="app-panel" class="app-shell" hidden>
-      <aside class="window sidebar">
-        <div class="window-bar"><span>✳ Buddy List</span><button id="logout" class="window-control" type="button">Sign out</button></div>
-        <div class="profile">
-          <div class="avatar">☺</div>
-          <div><strong id="my-name">...</strong><span class="muted" id="my-handle">@...</span></div>
+      <!-- Search flux -->
+      <div class="search-flux">
+        <input id="search-input" placeholder="Find by status pulse..." autocomplete="off">
+        <button id="search-button" type="button" class="flux-btn small">⌕</button>
+      </div>
+
+      <!-- Scrollable orbital sections -->
+      <div class="ring-content">
+
+        <!-- Search results (hidden until search) -->
+        <div class="ring-section" id="search-results-section" hidden>
+          <div class="ring-label">
+            <span class="label-icon">⌕</span>
+            <span>Found</span>
+            <span id="search-count" class="count">0</span>
+          </div>
+          <div id="search-results" class="buddy-list"></div>
         </div>
+
+        <!-- Conversations ring -->
+        <div class="ring-section">
+          <div class="ring-label">
+            <span class="label-icon">◉</span>
+            <span>Active streams</span>
+          </div>
+          <div id="conversations" class="buddy-list"></div>
+        </div>
+
+        <!-- Online ring -->
+        <div class="ring-section">
+          <div class="ring-label">
+            <span class="label-icon">●</span>
+            <span>Alive now</span>
+            <span id="online-count" class="count">0</span>
+          </div>
+          <div id="online-users" class="buddy-list">
+            <p class="muted small">Silence for now.</p>
+          </div>
+        </div>
+
+        <!-- All people ring -->
+        <div class="ring-section">
+          <div class="ring-label">
+            <span class="label-icon">◌</span>
+            <span>All nodes</span>
+          </div>
+          <div id="users" class="buddy-list"></div>
+        </div>
+
+        <!-- Status editor -->
         <details class="status-editor" id="status-editor">
           <summary>
             <span id="my-status-dot" class="presence live" aria-hidden="true"></span>
             <span id="my-status-label">Online</span>
-            <span class="status-edit-label">Edit status</span>
+            <span class="status-edit-label">Shift pulse</span>
           </summary>
           <form id="status-form">
-            <label class="label-small" for="status-availability">Availability</label>
+            <label class="label-small" for="status-availability">State</label>
             <select id="status-availability">
               <option value="online">Online</option>
               <option value="idle">Idle</option>
               <option value="dnd">Do Not Disturb</option>
             </select>
-            <label class="label-small" for="status-description">Description (optional)</label>
+            <label class="label-small" for="status-description">Pulse text (optional)</label>
             <input id="status-description" maxlength="280" placeholder="Working on python">
-            <button id="save-status" type="submit">Save status</button>
+            <button id="save-status" class="flux-btn small" type="submit">Lock pulse</button>
           </form>
         </details>
         <p id="my-status-description" class="status-description" hidden></p>
+
+        <!-- Bio editor -->
         <div class="bio-edit">
-          <label class="label-small" for="bio-input">Your profile bio</label>
-          <div class="inline-row"><input id="bio-input" maxlength="280" placeholder="A little about you..."><button id="save-bio" type="button">Save</button></div>
-        </div>
-        <div class="search-box">
-          <label class="label-small" for="search-input">🔍 Search by status</label>
+          <label class="label-small" for="bio-input">Your node signature</label>
           <div class="inline-row">
-            <input id="search-input" placeholder="Keywords..." autocomplete="off">
-            <button id="search-button" type="button">Search</button>
+            <input id="bio-input" maxlength="280" placeholder="A little about you...">
+            <button id="save-bio" class="flux-btn small" type="button">Set</button>
           </div>
         </div>
-        <section class="side-section" id="search-results-section" hidden>
-          <h2>🔎 Results <span id="search-count" class="count">0</span></h2>
-          <div id="search-results" class="buddy-list"></div>
-        </section>
-        <section class="side-section">
-          <h2>🟢 Online <span id="online-count" class="count">0</span></h2>
-          <div id="online-users" class="buddy-list"><p class="muted small">Nobody online yet.</p></div>
-        </section>
-        <section class="side-section">
-          <h2>👥 People</h2>
-          <div id="users" class="buddy-list"></div>
-        </section>
-        <section class="side-section conversations-section">
-          <h2>💬 Conversations</h2>
-          <div id="conversations" class="buddy-list"></div>
-        </section>
-      </aside>
 
-      <main class="window chat-window">
-        <div class="window-bar"><span id="chat-title">💬 Ping! Messenger</span><span>─ □ ×</span></div>
-        <div id="chat-placeholder" class="chat-placeholder">
-          <span class="welcome-icon">✳</span>
-          <h1>You're online!</h1>
-          <p>Select a friend from your buddy list to start talking.</p>
-          <p class="muted small">Real-time messaging uses a WebSocket connection.</p>
+      </div>
+    </nav>
+
+    <!-- Right: Message stream (chat area) -->
+    <main class="stream">
+
+      <!-- Placeholder when no chat selected -->
+      <div id="chat-placeholder" class="stream-empty">
+        <div class="empty-core">
+          <div class="core-ring ring-outer"></div>
+          <div class="core-ring ring-mid"></div>
+          <div class="core-ring ring-inner"></div>
+          <div class="core-symbol">◈</div>
         </div>
-        <div id="chat-active" class="chat-active" hidden>
-          <div id="chat-context" class="chat-context" hidden></div>
-          <div class="chat-toolbar">
-            <div class="history-controls"><button id="load-older" type="button" hidden>↑ Load older messages</button></div>
-            <button id="end-conversation" class="danger-btn" type="button" hidden>✕ End Conversation</button>
+        <h1>The constellation awaits</h1>
+        <p>Select a node to begin a stream.</p>
+        <p class="muted small">Real-time messaging uses a WebSocket connection.</p>
+      </div>
+
+      <!-- Active chat stream -->
+      <div id="chat-active" class="stream-active" hidden>
+        <div class="stream-header">
+          <div class="stream-title-area">
+            <span class="stream-icon">◉</span>
+            <div id="chat-title" class="stream-title">Chat</div>
           </div>
-          <div id="messages" class="messages" aria-live="polite"></div>
-          <form id="send-form" class="composer">
-            <label class="sr-only" for="message-text">Message</label>
-            <textarea id="message-text" rows="2" maxlength="4000" placeholder="Type a message... (Enter to send)"></textarea>
-            <div class="composer-tools">
-              <label class="upload-label">📎 Attach image / video
-                <input id="message-files" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm" multiple>
-              </label>
-              <span id="file-count" class="muted small"></span>
-              <button id="send-button" class="primary" type="submit">Send ➤</button>
-            </div>
-          </form>
+          <div class="stream-actions">
+            <button id="end-conversation" class="danger-btn" type="button" hidden>✕ Sever</button>
+          </div>
         </div>
-      </main>
-    </section>
+        <div id="chat-context" class="stream-context" hidden></div>
+        <div id="messages" class="stream-messages" aria-live="polite"></div>
+        <div class="history-controls">
+          <button id="load-older" type="button" hidden>↑ Unearth older</button>
+        </div>
+        <form id="send-form" class="stream-composer">
+          <label class="sr-only" for="message-text">Message</label>
+          <div class="composer-row">
+            <label class="upload-label" title="Attach file">⧉
+              <input id="message-files" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm" multiple>
+            </label>
+            <textarea id="message-text" rows="1" maxlength="4000" placeholder="Speak into the stream..."></textarea>
+            <button id="send-button" class="flux-btn" type="submit">➤</button>
+          </div>
+          <span id="file-count" class="muted small"></span>
+        </form>
+      </div>
+    </main>
 
-    <div id="buddy-status" class="buddy-status" role="tooltip" hidden>
-      <strong id="buddy-status-name" aria-hidden="true"></strong>
-      <span class="buddy-status-availability"><span id="buddy-status-dot" class="presence" aria-hidden="true"></span><span id="buddy-status-label"></span></span>
-      <span id="buddy-status-description" class="buddy-status-description" hidden></span>
-      <button id="buddy-reply-status" class="small-btn" type="button" hidden>💬 Reply to status</button>
-      <button id="buddy-start-chat" class="small-btn" type="button">💬 Start chat</button>
-    </div>
-    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
-    <footer class="taskbar"><span>✳ Start</span><span id="connection-status">Offline</span><span>Ping! Beta</span></footer>
+  </section>
+
+  <!-- Buddy status tooltip -->
+  <div id="buddy-status" class="buddy-status" role="tooltip" hidden>
+    <strong id="buddy-status-name" aria-hidden="true"></strong>
+    <span class="buddy-status-availability">
+      <span id="buddy-status-dot" class="presence" aria-hidden="true"></span>
+      <span id="buddy-status-label"></span>
+    </span>
+    <span id="buddy-status-description" class="buddy-status-description" hidden></span>
+    <button id="buddy-reply-status" class="small-btn" type="button" hidden>◉ Reply to pulse</button>
+    <button id="buddy-start-chat" class="small-btn" type="button">◉ Open stream</button>
   </div>
+
+  <!-- Notice toast -->
+  <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
 </body>
 </html>
