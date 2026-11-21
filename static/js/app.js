@@ -2,10 +2,78 @@
    local testing. Use HttpOnly secure cookies and CSRF protection in production. */
 const $ = (id) => document.getElementById(id);
 const state = {
-  token: sessionStorage.getItem('ping_token'), me: null, users: [], onlineIds: new Set(),
+  token: sessionStorage.getItem('ping_token'), me: null, onlineAvailability: new Map(),
   conversations: [], current: null, ws: null, nextOffset: null, loadedIds: new Set(),
 };
 const API = '/api/v1';
+const statusLabels = { online: 'Online', idle: 'Idle', dnd: 'Do Not Disturb', offline: 'Offline' };
+const statusClasses = { online: 'live', idle: 'idle', dnd: 'dnd' };
+const buddyStatus = $('buddy-status');
+let statusAnchor = null;
+let statusCloseTimer;
+
+function hideBuddyStatus() {
+  clearTimeout(statusCloseTimer);
+  statusAnchor?.removeAttribute('aria-describedby');
+  statusAnchor = null;
+  buddyStatus.hidden = true;
+}
+
+function positionBuddyStatus() {
+  if (!statusAnchor) return;
+  const row = statusAnchor.getBoundingClientRect();
+  const sidebar = statusAnchor.closest('.sidebar').getBoundingClientRect();
+  if (row.bottom <= Math.max(sidebar.top, 0) || row.top >= Math.min(sidebar.bottom, window.innerHeight)) {
+    hideBuddyStatus();
+    return;
+  }
+  const { offsetWidth: width, offsetHeight: height } = buddyStatus;
+  const fitsBeside = row.right + 6 + width <= window.innerWidth - 8;
+  const below = row.bottom + height + 6 <= window.innerHeight - 8;
+  const left = fitsBeside ? row.right + 6 : Math.min(row.left, window.innerWidth - width - 8);
+  const top = fitsBeside ? row.top : below ? row.bottom + 6 : row.top - height - 6;
+  buddyStatus.style.left = `${Math.max(8, left)}px`;
+  buddyStatus.style.top = `${Math.max(8, Math.min(top, window.innerHeight - height - 8))}px`;
+}
+
+function showBuddyStatus(anchor, user) {
+  hideBuddyStatus();
+  const availability = state.onlineAvailability.get(user.id) || 'offline';
+  const description = user.current_status?.description || '';
+  $('buddy-status-name').textContent = user.display_name;
+  $('buddy-status-dot').className = `presence ${statusClasses[availability] || ''}`;
+  $('buddy-status-label').textContent = statusLabels[availability];
+  $('buddy-status-description').textContent = description;
+  $('buddy-status-description').hidden = !description;
+  statusAnchor = anchor;
+  buddyStatus.hidden = false;
+  anchor.setAttribute('aria-describedby', buddyStatus.id);
+  positionBuddyStatus();
+}
+
+function scheduleBuddyStatusClose() {
+  clearTimeout(statusCloseTimer);
+  statusCloseTimer = setTimeout(() => {
+    if (!statusAnchor?.matches(':focus-visible, :hover') && !buddyStatus.matches(':hover')) hideBuddyStatus();
+  }, 160);
+}
+
+buddyStatus.addEventListener('pointerenter', () => clearTimeout(statusCloseTimer));
+buddyStatus.addEventListener('pointerleave', scheduleBuddyStatusClose);
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') hideBuddyStatus();
+});
+window.addEventListener('resize', positionBuddyStatus);
+window.addEventListener('scroll', positionBuddyStatus, true);
+
+function renderMyStatus({ availability, description }) {
+  $('my-status-dot').className = `presence ${statusClasses[availability]}`;
+  $('my-status-label').textContent = statusLabels[availability];
+  $('status-availability').value = availability;
+  $('status-description').value = description;
+  $('my-status-description').textContent = description;
+  $('my-status-description').hidden = !description;
+}
 
 function showNotice(message) {
   const notice = $('notice'); notice.textContent = String(message); notice.hidden = false;
@@ -39,41 +107,60 @@ async function login(username, password) {
 }
 async function boot() {
   try {
-    state.me = await api('/auth/me'); setSignedIn(true);
+    const [me, status] = await Promise.all([api('/auth/me'), api('/users/me/status')]);
+    state.me = me;
+    renderMyStatus(status);
+    $('status-editor').open = false;
+    setSignedIn(true);
     $('my-name').textContent = state.me.display_name;
     $('my-handle').textContent = `@${state.me.username}`;
     $('bio-input').value = state.me.bio;
-    await Promise.all([refreshUsers(), refreshConversations(), refreshStatuses()]);
+    await refreshUsers();
+    await refreshConversations();
     connectWebSocket();
   } catch (error) { logout(); showNotice(formatError(error)); }
 }
 function logout() {
+  hideBuddyStatus();
   state.token = null; state.me = null; state.current = null;
-  state.onlineIds = new Set(); state.loadedIds.clear();
+  state.onlineAvailability.clear(); state.loadedIds.clear();
   sessionStorage.removeItem('ping_token');
   if (state.ws) { const socket = state.ws; state.ws = null; socket.close(); }
   setSignedIn(false);
 }
 async function refreshUsers() {
   const [users, online] = await Promise.all([api('/users'), api('/users/online')]);
-  state.users = users; state.onlineIds = new Set(online.users.map((u) => u.id));
+  state.onlineAvailability = new Map(online.users.map((user) => [user.id, user.availability]));
   $('online-count').textContent = online.count;
   const onlineContainer = $('online-users'); onlineContainer.replaceChildren();
   if (!online.users.length) { const empty = document.createElement('p'); empty.className = 'small muted'; empty.textContent = 'Nobody online yet.'; onlineContainer.append(empty); }
   for (const user of online.users) {
-    if (user.id !== state.me.id) onlineContainer.append(buddyElement(user, true));
+    if (user.id !== state.me.id) onlineContainer.append(buddyElement(user));
   }
   const allContainer = $('users'); allContainer.replaceChildren();
-  state.users.forEach((user) => allContainer.append(buddyElement(user, state.onlineIds.has(user.id))));
+  users.forEach((user) => allContainer.append(buddyElement(user)));
+  if (statusAnchor && !statusAnchor.isConnected) hideBuddyStatus();
 }
-function buddyElement(user, online) {
-  const item = button('', () => openConversation(user.id)); item.className = 'buddy';
+function buddyElement(user, action = () => openConversation(user.id)) {
+  const item = button('', action, 'buddy');
   const avatar = document.createElement('span'); avatar.className = 'mini-avatar'; avatar.textContent = '☺';
   const names = document.createElement('span'); names.className = 'buddy-info';
   const name = document.createElement('span'); name.textContent = user.display_name;
   const subtitle = document.createElement('small'); subtitle.textContent = user.bio || `@${user.username}`;
   names.append(name, subtitle);
-  const dot = document.createElement('span'); dot.className = 'presence' + (online ? ' live' : '');
+  const dot = document.createElement('span');
+  const availability = state.onlineAvailability.get(user.id);
+  dot.className = `presence ${statusClasses[availability] || ''}`;
+  dot.setAttribute('aria-hidden', 'true');
+  item.addEventListener('pointerenter', (event) => {
+    if (event.pointerType !== 'touch') showBuddyStatus(item, user);
+  });
+  item.addEventListener('pointerleave', scheduleBuddyStatusClose);
+  item.addEventListener('focus', () => {
+    if (item.matches(':focus-visible')) showBuddyStatus(item, user);
+  });
+  item.addEventListener('blur', scheduleBuddyStatusClose);
+  item.addEventListener('click', hideBuddyStatus);
   item.append(avatar, names, dot); return item;
 }
 async function refreshConversations() {
@@ -83,35 +170,18 @@ async function refreshConversations() {
     const empty = document.createElement('p'); empty.className = 'small muted'; empty.textContent = 'No chats yet.'; root.append(empty);
   }
   for (const conversation of state.conversations) {
-    const item = buddyElement(conversation.other_user, state.onlineIds.has(conversation.other_user.id));
+    const item = buddyElement(conversation.other_user, () => selectConversation(conversation));
     const subtitle = item.querySelector('small');
     subtitle.textContent = conversation.status ? `↳ ${conversation.status.text}` : 'Direct message';
     item.classList.toggle('active', state.current?.id === conversation.id);
-    // Clone strips the buddy's default click handler, then bind this exact thread.
-    const threadButton = item.cloneNode(true);
-    threadButton.addEventListener('click', () => selectConversation(conversation));
-    root.append(threadButton);
+    root.append(item);
   }
+  if (statusAnchor && !statusAnchor.isConnected) hideBuddyStatus();
 }
-async function refreshStatuses() {
-  const statuses = await api('/statuses?limit=30');
-  const root = $('statuses'); root.replaceChildren();
-  for (const status of statuses) {
-    const author = status.author_id === state.me.id ? state.me : state.users.find((u) => u.id === status.author_id);
-    const row = document.createElement('div'); row.className = 'status-item';
-    const name = document.createElement('h3'); name.textContent = `${author?.display_name || 'User'} · ${new Date(status.created_at).toLocaleDateString()}`;
-    const text = document.createElement('p'); text.textContent = status.text;
-    row.append(name, text);
-    if (status.author_id !== state.me.id) {
-      row.append(button('↳ Reply in a private thread', () => openConversation(status.author_id, status.id)));
-    }
-    root.append(row);
-  }
-}
-async function openConversation(recipientId, statusId = null) {
+async function openConversation(recipientId) {
   try {
     const conversation = await api('/conversations', {
-      method: 'POST', body: JSON.stringify({ recipient_id: recipientId, status_id: statusId }),
+      method: 'POST', body: JSON.stringify({ recipient_id: recipientId }),
     });
     await refreshConversations(); await selectConversation(conversation);
   } catch (error) { showNotice(formatError(error)); }
@@ -247,8 +317,27 @@ $('save-bio').addEventListener('click', async () => {
 });
 $('status-form').addEventListener('submit', async (event) => {
   event.preventDefault();
-  try { await api('/statuses', { method: 'POST', body: JSON.stringify({ text: $('status-text').value }) }); $('status-text').value = ''; await refreshStatuses(); }
-  catch (error) { showNotice(formatError(error)); }
+  const token = state.token;
+  const submit = $('save-status');
+  submit.disabled = true;
+  try {
+    const status = await api('/users/me/status', {
+      method: 'PUT',
+      body: JSON.stringify({
+        availability: $('status-availability').value,
+        description: $('status-description').value,
+      }),
+    });
+    if (state.token !== token) return;
+    renderMyStatus(status);
+    $('status-editor').open = false;
+    $('status-editor').querySelector('summary').focus();
+    showNotice('Status saved.');
+  } catch (error) {
+    showNotice(formatError(error));
+  } finally {
+    submit.disabled = false;
+  }
 });
 $('load-older').addEventListener('click', () => loadHistory(true).catch((error) => showNotice(formatError(error))));
 $('send-form').addEventListener('submit', sendMessage);

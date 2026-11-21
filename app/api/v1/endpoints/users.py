@@ -1,9 +1,11 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from sqlalchemy import select
+from sqlalchemy.dialects.sqlite import insert
 
 from app.api.deps import CurrentUser, SessionDep
-from app.models import Conversation, StatusPost, User
-from app.schemas.user import OnlineUsersResponse, SearchResponse, SearchResultItem, UserPublic, UserUpdate
+from app.models import Conversation, User, UserStatus
+from app.schemas.status import CurrentStatus
+from app.schemas.user import OnlineUser, OnlineUsersResponse, SearchResponse, SearchResultItem, UserPublic, UserUpdate
 from app.services.presence import presence
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -24,8 +26,34 @@ def list_users(
 @router.get("/online", response_model=OnlineUsersResponse)
 async def online_users(db: SessionDep, current_user: CurrentUser):
     ids = await presence.online_user_ids()
-    users = db.scalars(select(User).where(User.id.in_(ids)).order_by(User.username)).all() if ids else []
+    online = db.scalars(select(User).where(User.id.in_(ids)).order_by(User.username)) if ids else []
+    users = [
+        OnlineUser(
+            **UserPublic.model_validate(user).model_dump(),
+            availability=user.current_status.availability if user.current_status else "online",
+        )
+        for user in online
+    ]
     return OnlineUsersResponse(count=len(users), users=users)
+
+
+@router.get("/me/status", response_model=CurrentStatus)
+def get_my_status(db: SessionDep, current_user: CurrentUser):
+    return db.get(UserStatus, current_user.id) or CurrentStatus()
+
+
+@router.put("/me/status", response_model=CurrentStatus)
+def set_my_status(
+    payload: CurrentStatus, db: SessionDep, current_user: CurrentUser, background_tasks: BackgroundTasks,
+):
+    values = payload.model_dump()
+    db.execute(
+        insert(UserStatus).values(user_id=current_user.id, **values)
+        .on_conflict_do_update(index_elements=[UserStatus.user_id], set_=values)
+    )
+    db.commit()
+    background_tasks.add_task(presence.publish_presence)
+    return payload
 
 
 @router.patch("/me", response_model=UserPublic)
@@ -53,31 +81,17 @@ def search_users(
     if not q.strip():
         return SearchResponse(count=0, results=[])
 
-    # Split query into individual keywords and build a case-insensitive LIKE filter
-    keywords = [kw.strip() for kw in q.split() if kw.strip()]
-    if not keywords:
-        return SearchResponse(count=0, results=[])
-
-    # Find statuses whose text contains ALL keywords (case-insensitive)
-    from sqlalchemy import and_
-    conditions = [StatusPost.text.ilike(f"%{kw}%") for kw in keywords]
-    matching_statuses = db.scalars(
-        select(StatusPost).where(and_(*conditions)).order_by(StatusPost.id.desc())
+    matches = db.execute(
+        select(User, UserStatus.description)
+        .join(UserStatus, UserStatus.user_id == User.id)
+        .where(
+            User.is_active.is_(True),
+            User.id != current_user.id,
+            UserStatus.description != "",
+            *(UserStatus.description.icontains(keyword, autoescape=True) for keyword in q.split()),
+        )
     ).all()
-
-    if not matching_statuses:
-        return SearchResponse(count=0, results=[])
-
-    # Collect unique author IDs (exclude current user)
-    author_ids = set()
-    author_to_status = {}  # map author_id -> first matching status text
-    for status in matching_statuses:
-        if status.author_id != current_user.id:
-            if status.author_id not in author_ids:
-                author_ids.add(status.author_id)
-                author_to_status[status.author_id] = status.text
-
-    if not author_ids:
+    if not matches:
         return SearchResponse(count=0, results=[])
 
     # Determine which authors are "friends" (have an existing conversation)
@@ -93,14 +107,9 @@ def search_users(
         )
         friend_ids.add(peer)
 
-    # Fetch user details
-    users = db.scalars(
-        select(User).where(User.id.in_(author_ids), User.is_active.is_(True))
-    ).all()
-
     # Build results: friends first, then non-friends
     results: list[SearchResultItem] = []
-    for user in users:
+    for user, description in matches:
         is_friend = user.id in friend_ids
         results.append(
             SearchResultItem(
@@ -109,7 +118,7 @@ def search_users(
                 display_name=user.display_name,
                 bio=user.bio,
                 is_friend=is_friend,
-                matching_status=author_to_status.get(user.id, ""),
+                matching_status=description,
             )
         )
 

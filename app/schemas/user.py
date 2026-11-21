@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.status import Availability, CurrentStatus
+
 
 class RegisterRequest(BaseModel):
     username: str = Field(min_length=3, max_length=24, pattern=r"^[A-Za-z0-9_]+$")
@@ -27,6 +29,7 @@ class UserPublic(BaseModel):
     display_name: str
     bio: str
     created_at: datetime
+    current_status: CurrentStatus | None = None
 
 
 class TokenResponse(BaseModel):
@@ -35,9 +38,13 @@ class TokenResponse(BaseModel):
     user: UserPublic
 
 
+class OnlineUser(UserPublic):
+    availability: Availability
+
+
 class OnlineUsersResponse(BaseModel):
     count: int
-    users: list[UserPublic]
+    users: list[OnlineUser]
 
 
 class SearchResultItem(BaseModel):

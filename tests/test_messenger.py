@@ -22,6 +22,43 @@ def test_home_and_auth(client):
     assert client.get("/api/v1/users/online", headers=auth).json() == {"count": 0, "users": []}
 
 
+def test_current_status_replaces_previous_description_and_updates_presence(client):
+    bob_id, bob = make_user(client, "bob")
+    _, alice = make_user(client, "alice")
+    conversation = client.post("/api/v1/conversations", headers=alice, json={"recipient_id": bob_id})
+    assert conversation.status_code == 200, conversation.text
+    path = "/api/v1/users/me/status"
+    assert client.get(path).status_code == 401
+    assert client.get(path, headers=bob).json() == {"availability": "online", "description": ""}
+
+    bob_token = bob["Authorization"].split()[1]
+    with client.websocket_connect(f"/api/v1/ws?token={bob_token}") as socket:
+        assert socket.receive_json()["user_ids"] == [bob_id]
+        saved = client.put(path, headers=bob, json={
+            "availability": "idle", "description": "  Working on python  ",
+        })
+        assert saved.status_code == 200, saved.text
+        assert saved.json() == {"availability": "idle", "description": "Working on python"}
+        assert client.get(path, headers=bob).json() == saved.json()
+        assert socket.receive_json()["type"] == "presence.update"
+        online_bob = client.get("/api/v1/users/online", headers=alice).json()["users"][0]
+        assert online_bob["availability"] == "idle"
+        assert online_bob["current_status"] == saved.json()
+        assert client.get("/api/v1/users", headers=alice).json()[0]["current_status"] == saved.json()
+        peer = client.get("/api/v1/conversations", headers=alice).json()[0]["other_user"]
+        assert peer["current_status"] == saved.json()
+        matches = client.get("/api/v1/users/search?q=PYTHON+working", headers=alice).json()["results"]
+        assert [(match["id"], match["matching_status"]) for match in matches] == [(bob_id, "Working on python")]
+
+        cleared = client.put(path, headers=bob, json={"availability": "dnd", "description": ""})
+        assert cleared.status_code == 200, cleared.text
+        assert client.get(path, headers=bob).json() == {"availability": "dnd", "description": ""}
+        assert client.get("/api/v1/users/search?q=python", headers=alice).json()["count"] == 0
+        assert client.put(path, headers=bob, json={"availability": "invalid"}).status_code == 422
+    assert client.get("/api/v1/users/online", headers=alice).json()["users"] == []
+    assert client.get("/api/v1/users", headers=alice).json()[0]["current_status"] == cleared.json()
+
+
 def test_dms_history_status_threads_and_permissions(client):
     alice_id, alice = make_user(client, "alice")
     bob_id, bob = make_user(client, "bob")

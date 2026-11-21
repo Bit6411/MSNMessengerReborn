@@ -46,8 +46,26 @@
         <div class="profile">
           <div class="avatar">☺</div>
           <div><strong id="my-name">...</strong><span class="muted" id="my-handle">@...</span></div>
-          <span class="online-dot" title="Online"></span>
         </div>
+        <details class="status-editor" id="status-editor">
+          <summary>
+            <span id="my-status-dot" class="presence live" aria-hidden="true"></span>
+            <span id="my-status-label">Online</span>
+            <span class="status-edit-label">Edit status</span>
+          </summary>
+          <form id="status-form">
+            <label class="label-small" for="status-availability">Availability</label>
+            <select id="status-availability">
+              <option value="online">Online</option>
+              <option value="idle">Idle</option>
+              <option value="dnd">Do Not Disturb</option>
+            </select>
+            <label class="label-small" for="status-description">Description (optional)</label>
+            <input id="status-description" maxlength="280" placeholder="Working on python">
+            <button id="save-status" type="submit">Save status</button>
+          </form>
+        </details>
+        <p id="my-status-description" class="status-description" hidden></p>
         <div class="bio-edit">
           <label class="label-small" for="bio-input">Your profile bio</label>
           <div class="inline-row"><input id="bio-input" maxlength="280" placeholder="A little about you..."><button id="save-bio" type="button">Save</button></div>
@@ -82,7 +100,7 @@
         <div id="chat-placeholder" class="chat-placeholder">
           <span class="welcome-icon">✳</span>
           <h1>You're online!</h1>
-          <p>Select a friend from your buddy list or reply to a status to start talking.</p>
+          <p>Select a friend from your buddy list to start talking.</p>
           <p class="muted small">Real-time messaging uses a WebSocket connection.</p>
         </div>
         <div id="chat-active" class="chat-active" hidden>
@@ -102,18 +120,13 @@
           </form>
         </div>
       </main>
-
-      <aside class="window updates-panel">
-        <div class="window-bar">📌 Status Updates</div>
-        <div class="status-compose">
-          <label class="label-small" for="status-text">What's on your mind?</label>
-          <form id="status-form"><textarea id="status-text" maxlength="280" rows="2" placeholder="Anyone up for a game?"></textarea><button type="submit">Post status</button></form>
-        </div>
-        <div id="statuses" class="statuses"></div>
-        <p class="muted small panel-hint">Replying to a status creates a private conversation linked to that exact status.</p>
-      </aside>
     </section>
 
+    <div id="buddy-status" class="buddy-status" role="tooltip" hidden>
+      <strong id="buddy-status-name" aria-hidden="true"></strong>
+      <span class="buddy-status-availability"><span id="buddy-status-dot" class="presence" aria-hidden="true"></span><span id="buddy-status-label"></span></span>
+      <span id="buddy-status-description" class="buddy-status-description" hidden></span>
+    </div>
     <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
     <footer class="taskbar"><span>✳ Start</span><span id="connection-status">Offline</span><span>Ping! Beta</span></footer>
   </div>
