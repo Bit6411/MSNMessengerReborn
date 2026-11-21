@@ -10,8 +10,9 @@ A hackathon-ready **backend plus simple browser demo**, based on a modular FastA
 - Private files are kept on disk under `uploads/`, **not publicly mounted as static files**; the API checks conversation membership before reading them.
 - Online presence: list of online users plus count, updated through WebSockets. One person with multiple tabs is counted once.
 - Paginated history: `GET .../messages?limit=20&offset=0` retrieves the 20 newest messages. `offset=20` gets 20 older messages. Results are **newest first** (sort by `message.id DESC`).
-- Short, persistent profile bio for every user and 280-character status posts.
-- **Status-based private threads:** when Bob posts a status, Alice can start a DM specifically linked to that status. Alice/Bob can have an ordinary DM and different status threads in parallel.
+- Short, persistent profile bio and a current status with Online, Idle, or Do Not Disturb availability and an optional 280-character description.
+- Hover over a buddy or reach their entry with Tab to see their availability and status description.
+- The legacy status-post API supports private threads linked to a specific post. Existing threads remain available in Conversations.
 - Nostalgic, responsive HTML/Jinja/CSS/JS demo at `/` (not a finished production design).
 
 ## Structure
@@ -109,7 +110,7 @@ Copy the printed value into `JWT_SECRET_KEY=...` in `.env`. **Never commit `.env
 uvicorn app.main:app --reload
 ```
 
-FastAPI will create `msnmessenger_reborn.db` and the five missing tables automatically on first startup. Alternatively run `python -m app.db.init_db` to create the tables manually. **No `CREATE DATABASE` command is required.**
+FastAPI will create `msnmessenger_reborn.db` and any missing tables automatically on startup. Alternatively run `python -m app.db.init_db` to create the tables manually. **No `CREATE DATABASE` command is required.**
 
 **4. Open:**
 
@@ -117,7 +118,7 @@ FastAPI will create `msnmessenger_reborn.db` and the five missing tables automat
 - Interactive API docs: http://127.0.0.1:8000/docs
 - Health: http://127.0.0.1:8000/health
 
-**5. Test with two users**: register Alice in one browser and Bob in an incognito window. Both must keep the site open for their WebSockets to count as online. Select a buddy and exchange live messages, or have Bob publish a status and Alice use **Reply in a private thread**.
+**5. Test with two users.** Register Alice in one browser and Bob in an incognito window. Both must keep the site open for their WebSockets to count as online. Exchange live messages, then use **Edit status** under Bob's profile to set an availability and a description. Alice can look up the description using **Search by status**.
 
 **Mac/Linux quick start**: replace `py` with `python3`, activate with `source .venv/bin/activate`, then use the same install/server commands.
 
@@ -134,6 +135,8 @@ All paths below start with `/api/v1`, except `/health`, `/`, and `/static/...`. 
 | `GET` | `/users/online` | `{count, users: [...]}` — live WebSocket users |
 | `GET` | `/users/{user_id}` | Public profile and bio |
 | `PATCH` | `/users/me` | Set `display_name` and/or `bio` |
+| `GET` | `/users/me/status` | Get your current availability and description |
+| `PUT` | `/users/me/status` | Replace your current status. Use `online`, `idle`, or `dnd` and an optional `description`. An empty description clears it. |
 | `POST` | `/statuses` | Post a new status |
 | `GET` | `/statuses` | Recent status feed |
 | `GET` | `/users/{user_id}/statuses` | A user's statuses |

@@ -1,6 +1,17 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+Availability = Literal["online", "idle", "dnd"]
+
+
+class CurrentStatus(BaseModel):
+    model_config = ConfigDict(from_attributes=True, str_strip_whitespace=True)
+
+    availability: Availability = "online"
+    description: str = Field(default="", max_length=280)
 
 
 class StatusCreate(BaseModel):
