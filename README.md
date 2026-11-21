@@ -48,7 +48,7 @@ msnmessenger-reborn-sqlite-starter/
 │   ├── db/
 │   │   ├── base.py             # SQLAlchemy DeclarativeBase
 │   │   ├── session.py          # Engine and Session
-│   │   └── init_db.py          # CREATE missing tables, without migrations
+│   │   └── init_db.py          # Create tables and apply local schema upgrades
 │   ├── models/
 │   │   ├── user.py
 │   │   ├── status.py
@@ -110,7 +110,7 @@ Copy the printed value into `JWT_SECRET_KEY=...` in `.env`. **Never commit `.env
 uvicorn app.main:app --reload
 ```
 
-FastAPI will create `msnmessenger_reborn.db` and any missing tables automatically on startup. Alternatively run `python -m app.db.init_db` to create the tables manually. **No `CREATE DATABASE` command is required.**
+FastAPI creates `msnmessenger_reborn.db`, creates any missing tables, and adds the conversation end-tracking column to older databases on startup. To initialize or upgrade the schema manually, run `python -m app.db.init_db`. **No `CREATE DATABASE` command is required.**
 
 **4. Open:**
 
@@ -263,7 +263,7 @@ Automated tests use an in-memory SQLite database and override the normal file-ba
 
 ## Design decisions / limitations
 
-- **No schema migrations:** `Base.metadata.create_all()` makes missing tables; if you change an existing model, it **will not alter existing columns**. During a disposable hackathon prototype, you can stop the app, back up the `.db` file, and delete it to recreate the schema (which also erases all local accounts/messages). For real users, add migrations later.
+- **Explicit schema upgrades:** `Base.metadata.create_all()` creates missing tables. Changes to existing tables need an explicit upgrade in `app/db/init_db.py`.
 - **SQLite is local-only:** the `msnmessenger_reborn.db` file (plus optional `-wal`/`-shm` sidecar files) is local application state. Do not commit it. For higher write concurrency or multi-server deployment, migrate to a server database (such as PostgreSQL). SQLite foreign keys and WAL mode are enabled for the app engine.
 - **One server process:** presence and broadcast connections are stored in Python memory (`services/presence.py`). Use `uvicorn app.main:app --reload` with one worker for development. A multi-instance production system needs Redis pub/sub or another shared presence/event bus.
 - **Basic dev security only:** change the example JWT secret, use HTTPS/WSS and secure HttpOnly cookie/session auth for a public deployment, configure strict allowed origins, set web-server request-size limits, add rate limiting and upload scanning/transcoding, and implement password resets/account recovery. The local browser demo stores the JWT in `sessionStorage`; this is not the preferred production token-storage method. WebSocket token-in-query is a browser-friendly **local prototype compromise** and can leak via URL logs.

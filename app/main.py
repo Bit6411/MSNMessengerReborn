@@ -17,7 +17,6 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Good for an MVP: create missing tables. This does NOT migrate changed models.
     init_db()
     get_settings().upload_path.mkdir(parents=True, exist_ok=True)
     yield
