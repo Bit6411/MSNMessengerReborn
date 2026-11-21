@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
-from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import get_settings
@@ -26,7 +25,9 @@ async def chat_socket(websocket: WebSocket):
     # MVP, the short-lived JWT travels in the URL. Use WSS and stronger session
     # transport for a public deployment; avoid logging WebSocket URLs/tokens.
     origin = websocket.headers.get("origin")
-    if origin and origin not in get_settings().cors_origin_list:
+    http_scheme = "https" if websocket.url.scheme == "wss" else "http"
+    same_origin = f"{http_scheme}://{websocket.url.netloc}"
+    if origin and origin != same_origin and origin not in get_settings().cors_origin_list:
         await websocket.close(code=1008)
         return
     token = websocket.query_params.get("token", "")
