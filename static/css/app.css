@@ -709,13 +709,52 @@ body::before {
   gap: 8px;
   padding: 8px 0;
 }
-.status-editor select {
-  font: inherit;
+.status-options {
+  display: grid;
+  gap: 4px;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.status-options legend { margin-bottom: 6px; padding: 0; }
+.status-option {
+  position: relative;
+  font-size: 12px;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+}
+.status-option-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 36px;
+  padding: 6px 10px;
   color: var(--star-bright);
   border: 1px solid var(--glass-border);
-  border-radius: 0;
+  border-radius: 6px;
+  background: var(--void-surface);
+  transition: background 0.2s, border-color 0.2s;
+}
+.status-option-row .presence { margin-left: 0; }
+.status-option:hover .status-option-row { background: var(--void-mid); }
+.status-option input:checked + .status-option-row {
+  border-color: var(--nebula-glow);
   background: var(--void-mid);
-  padding: 8px;
+}
+.status-option input:checked + .status-option-row::after {
+  content: "";
+  width: 5px;
+  height: 9px;
+  margin-inline-start: auto;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.status-option input:focus-visible + .status-option-row {
+  outline: 2px solid var(--nebula-glow);
+  outline-offset: 2px;
 }
 .status-description {
   margin: 0;
