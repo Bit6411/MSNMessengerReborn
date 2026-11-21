@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import Conversation, StatusPost, User
+from app.models import Conversation, Message, StatusPost, User
 from app.schemas.conversation import ConversationCreate, ConversationRead
 
 
@@ -64,3 +64,40 @@ def get_or_create(db: Session, user_id: int, data: ConversationCreate) -> Conver
         raise
     db.refresh(result)
     return result
+
+
+def end_conversation(db: Session, conversation_id: int, user_id: int) -> None:
+    """Mark a user as having ended the conversation. If both users have ended,
+    delete the conversation and all its messages."""
+    conversation = require_member(db, conversation_id, user_id)
+    # Bit 1 (value=1) for user_low_id, Bit 2 (value=2) for user_high_id
+    bit = 2 if user_id == conversation.user_high_id else 1
+    
+    # Check if this user already ended
+    if conversation.ended_by & bit:
+        raise HTTPException(status_code=400, detail="You already ended this conversation")
+    
+    # Set the bit for this user
+    conversation.ended_by |= bit
+    
+    # If both users have ended (bitmask == 3), delete the conversation
+    if conversation.ended_by == 3:
+        db.query(Message).filter(Message.conversation_id == conversation_id).delete(
+            synchronize_session='fetch'
+        )
+        db.delete(conversation)
+        db.commit()
+    else:
+        db.commit()
+
+
+def create_system_message(db: Session, conversation_id: int, text: str) -> Message:
+    """Create a system message (sender_id = None) to notify participants."""
+    message = Message(
+        conversation_id=conversation_id,
+        sender_id=None,  # System message marker
+        text=text,
+    )
+    db.add(message)
+    db.flush()
+    return message

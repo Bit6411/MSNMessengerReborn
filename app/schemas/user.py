@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.status import Availability, CurrentStatus
+from app.schemas.status import Availability, CurrentStatus, StatusRead
 
 
 class RegisterRequest(BaseModel):
@@ -30,6 +30,7 @@ class UserPublic(BaseModel):
     bio: str
     created_at: datetime
     current_status: CurrentStatus | None = None
+    latest_status_post: StatusRead | None = None
 
 
 class TokenResponse(BaseModel):

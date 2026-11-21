@@ -29,7 +29,7 @@ class AttachmentRead(BaseModel):
 class MessageRead(BaseModel):
     id: int
     conversation_id: int
-    sender_id: int
+    sender_id: int | None = None
     text: str
     attachments: list[AttachmentRead]
     created_at: datetime
