@@ -38,3 +38,19 @@ class TokenResponse(BaseModel):
 class OnlineUsersResponse(BaseModel):
     count: int
     users: list[UserPublic]
+
+
+class SearchResultItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str
+    display_name: str
+    bio: str
+    is_friend: bool
+    matching_status: str
+
+
+class SearchResponse(BaseModel):
+    count: int
+    results: list[SearchResultItem]
