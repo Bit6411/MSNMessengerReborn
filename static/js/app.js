@@ -11,6 +11,7 @@ const statusClasses = { online: 'live', idle: 'idle', dnd: 'dnd' };
 const buddyStatus = $('buddy-status');
 let statusAnchor = null;
 let statusCloseTimer;
+let buddyStatusUserId = null;  // Track the user ID shown in the tooltip
 
 function hideBuddyStatus() {
   clearTimeout(statusCloseTimer);
@@ -40,11 +41,21 @@ function showBuddyStatus(anchor, user) {
   hideBuddyStatus();
   const availability = state.onlineAvailability.get(user.id) || 'offline';
   const description = user.current_status?.description || '';
+  // Use latest_status_post for the status text (separate from availability status)
+  const statusPost = user.latest_status_post;
+  const statusText = statusPost?.text || '';
   $('buddy-status-name').textContent = user.display_name;
   $('buddy-status-dot').className = `presence ${statusClasses[availability] || ''}`;
   $('buddy-status-label').textContent = statusLabels[availability];
-  $('buddy-status-description').textContent = description;
-  $('buddy-status-description').hidden = !description;
+  $('buddy-status-description').textContent = description || statusText;
+  $('buddy-status-description').hidden = !description && !statusText;
+  // Show "Reply to status" only if the user has a status post
+  $('buddy-reply-status').hidden = !statusText;
+  // Store user data for button handlers
+  buddyStatusUserId = user.id;
+  buddyStatus.dataset.userId = user.id;
+  buddyStatus.dataset.statusText = statusText;
+  buddyStatus.dataset.statusId = statusPost?.id || '';
   statusAnchor = anchor;
   buddyStatus.hidden = false;
   anchor.setAttribute('aria-describedby', buddyStatus.id);
@@ -178,12 +189,26 @@ async function refreshConversations() {
   }
   if (statusAnchor && !statusAnchor.isConnected) hideBuddyStatus();
 }
-async function openConversation(recipientId) {
+async function openConversation(recipientId, statusId) {
   try {
+    const payload = { recipient_id: recipientId };
+    if (statusId) payload.status_id = statusId;
     const conversation = await api('/conversations', {
-      method: 'POST', body: JSON.stringify({ recipient_id: recipientId }),
+      method: 'POST', body: JSON.stringify(payload),
     });
     await refreshConversations(); await selectConversation(conversation);
+  } catch (error) { showNotice(formatError(error)); }
+}
+
+async function endConversation() {
+  if (!state.current) return;
+  const convId = state.current.id;
+  try {
+    await api(`/conversations/${convId}`, { method: 'DELETE' });
+    showNotice('You ended the conversation. Wait for the other user to end it too.');
+    // Disable the button to prevent double-click
+    $('end-conversation').disabled = true;
+    $('end-conversation').textContent = '✕ Waiting for other user...';
   } catch (error) { showNotice(formatError(error)); }
 }
 async function selectConversation(conversation) {
@@ -194,6 +219,10 @@ async function selectConversation(conversation) {
     $('chat-context').hidden = !conversation.status;
     $('chat-context').textContent = conversation.status ? `📌 Replying to status: “${conversation.status.text}”` : '';
     $('messages').replaceChildren();
+    // Show the End Conversation button
+    $('end-conversation').hidden = false;
+    $('end-conversation').disabled = false;
+    $('end-conversation').textContent = '✕ End Conversation';
     await loadHistory(false); await refreshConversations();
   } catch (error) { showNotice(formatError(error)); }
 }
@@ -214,6 +243,14 @@ async function loadHistory(older) {
 function addMessage(message, prepend = false) {
   if (state.loadedIds.has(message.id) || message.conversation_id !== state.current?.id) return;
   state.loadedIds.add(message.id);
+  // System messages (sender_id is null) are rendered as centered notices
+  if (message.sender_id == null) {
+    const systemBox = document.createElement('div');
+    systemBox.className = 'system-message';
+    systemBox.textContent = message.text;
+    if (prepend) $('messages').prepend(systemBox); else $('messages').append(systemBox);
+    return;
+  }
   const box = document.createElement('article'); box.className = 'message' + (message.sender_id === state.me.id ? ' mine' : '');
   box.dataset.messageId = message.id;
   const meta = document.createElement('div'); meta.className = 'meta';
@@ -264,6 +301,23 @@ function connectWebSocket() {
         await refreshConversations();
       }
       if (packet.type === 'message.error') showNotice(packet.detail);
+      if (packet.type === 'conversation.deleted') {
+        const deletedId = packet.conversation_id;
+        // Remove from conversation list
+        state.conversations = state.conversations.filter((c) => c.id !== deletedId);
+        if (state.current?.id === deletedId) {
+          // Close the current chat view
+          state.current = null;
+          state.loadedIds.clear();
+          state.nextOffset = null;
+          $('chat-active').hidden = true;
+          $('chat-placeholder').hidden = false;
+          $('chat-title').textContent = '💬 Ping! Messenger';
+          $('messages').replaceChildren();
+          showNotice('This conversation has been ended by both users.');
+        }
+        refreshConversations();
+      }
     } catch (error) { showNotice(formatError(error)); }
   });
   ws.addEventListener('close', () => {
@@ -390,5 +444,25 @@ $('search-input').addEventListener('keydown', (event) => {
     searchUsers($('search-input').value);
   }
 });
+
+/* ---------- Buddy status tooltip buttons ---------- */
+$('buddy-reply-status').addEventListener('click', () => {
+  const userId = parseInt(buddyStatus.dataset.userId, 10);
+  const statusId = buddyStatus.dataset.statusId;
+  if (userId) {
+    openConversation(userId, statusId ? parseInt(statusId, 10) : null);
+    hideBuddyStatus();
+  }
+});
+$('buddy-start-chat').addEventListener('click', () => {
+  const userId = parseInt(buddyStatus.dataset.userId, 10);
+  if (userId) {
+    openConversation(userId);
+    hideBuddyStatus();
+  }
+});
+
+/* ---------- End conversation button ---------- */
+$('end-conversation').addEventListener('click', endConversation);
 
 if (state.token) boot();

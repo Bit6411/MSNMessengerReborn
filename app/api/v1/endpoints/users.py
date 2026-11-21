@@ -1,14 +1,49 @@
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.dialects.sqlite import insert
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import CurrentUser, SessionDep
-from app.models import Conversation, User, UserStatus
-from app.schemas.status import CurrentStatus
+from app.models import Conversation, StatusPost, User, UserStatus
+from app.schemas.status import CurrentStatus, StatusRead
 from app.schemas.user import OnlineUser, OnlineUsersResponse, SearchResponse, SearchResultItem, UserPublic, UserUpdate
 from app.services.presence import presence
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
+
+def _to_user_public(db, user):
+    """Convert a User ORM object to UserPublic, including the latest status post."""
+    # Fetch the latest status post for this user
+    latest = db.scalar(
+        select(StatusPost)
+        .where(StatusPost.author_id == user.id)
+        .order_by(StatusPost.id.desc())
+        .limit(1)
+    )
+    status_read = None
+    if latest:
+        status_read = StatusRead(
+            id=latest.id,
+            author_id=latest.author_id,
+            text=latest.text,
+            created_at=latest.created_at,
+        )
+    current_status = None
+    if user.current_status:
+        current_status = CurrentStatus(
+            availability=user.current_status.availability,
+            description=user.current_status.description,
+        )
+    return UserPublic(
+        id=user.id,
+        username=user.username,
+        display_name=user.display_name,
+        bio=user.bio,
+        created_at=user.created_at,
+        current_status=current_status,
+        latest_status_post=status_read,
+    )
 
 
 @router.get("", response_model=list[UserPublic])
@@ -17,10 +52,11 @@ def list_users(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ):
-    return db.scalars(
+    users = db.scalars(
         select(User).where(User.is_active.is_(True), User.id != current_user.id)
         .order_by(User.username).offset(offset).limit(limit)
     ).all()
+    return [_to_user_public(db, u) for u in users]
 
 
 @router.get("/online", response_model=OnlineUsersResponse)
@@ -29,7 +65,7 @@ async def online_users(db: SessionDep, current_user: CurrentUser):
     online = db.scalars(select(User).where(User.id.in_(ids)).order_by(User.username)) if ids else []
     users = [
         OnlineUser(
-            **UserPublic.model_validate(user).model_dump(),
+            **_to_user_public(db, user).model_dump(),
             availability=user.current_status.availability if user.current_status else "online",
         )
         for user in online

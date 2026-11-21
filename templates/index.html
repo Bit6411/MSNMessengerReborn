@@ -105,7 +105,10 @@
         </div>
         <div id="chat-active" class="chat-active" hidden>
           <div id="chat-context" class="chat-context" hidden></div>
-          <div class="history-controls"><button id="load-older" type="button" hidden>↑ Load older messages</button></div>
+          <div class="chat-toolbar">
+            <div class="history-controls"><button id="load-older" type="button" hidden>↑ Load older messages</button></div>
+            <button id="end-conversation" class="danger-btn" type="button" hidden>✕ End Conversation</button>
+          </div>
           <div id="messages" class="messages" aria-live="polite"></div>
           <form id="send-form" class="composer">
             <label class="sr-only" for="message-text">Message</label>
@@ -126,6 +129,8 @@
       <strong id="buddy-status-name" aria-hidden="true"></strong>
       <span class="buddy-status-availability"><span id="buddy-status-dot" class="presence" aria-hidden="true"></span><span id="buddy-status-label"></span></span>
       <span id="buddy-status-description" class="buddy-status-description" hidden></span>
+      <button id="buddy-reply-status" class="small-btn" type="button" hidden>💬 Reply to status</button>
+      <button id="buddy-start-chat" class="small-btn" type="button">💬 Start chat</button>
     </div>
     <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
     <footer class="taskbar"><span>✳ Start</span><span id="connection-status">Offline</span><span>Ping! Beta</span></footer>
