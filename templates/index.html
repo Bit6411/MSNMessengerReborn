@@ -52,6 +52,17 @@
           <label class="label-small" for="bio-input">Your profile bio</label>
           <div class="inline-row"><input id="bio-input" maxlength="280" placeholder="A little about you..."><button id="save-bio" type="button">Save</button></div>
         </div>
+        <div class="search-box">
+          <label class="label-small" for="search-input">🔍 Search by status</label>
+          <div class="inline-row">
+            <input id="search-input" placeholder="Keywords..." autocomplete="off">
+            <button id="search-button" type="button">Search</button>
+          </div>
+        </div>
+        <section class="side-section" id="search-results-section" hidden>
+          <h2>🔎 Results <span id="search-count" class="count">0</span></h2>
+          <div id="search-results" class="buddy-list"></div>
+        </section>
         <section class="side-section">
           <h2>🟢 Online <span id="online-count" class="count">0</span></h2>
           <div id="online-users" class="buddy-list"><p class="muted small">Nobody online yet.</p></div>

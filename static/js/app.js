@@ -256,4 +256,50 @@ $('message-text').addEventListener('keydown', (event) => {
   if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); $('send-form').requestSubmit(); }
 });
 $('message-files').addEventListener('change', () => { $('file-count').textContent = `${$('message-files').files.length} selected`; });
+
+/* ---------- Search by status keywords ---------- */
+async function searchUsers(query) {
+  if (!query.trim()) {
+    $('search-results-section').hidden = true;
+    return;
+  }
+  try {
+    const encoded = encodeURIComponent(query.trim());
+    const data = await api(`/users/search?q=${encoded}`);
+    const root = $('search-results');
+    root.replaceChildren();
+    $('search-count').textContent = data.count;
+    if (!data.results.length) {
+      const empty = document.createElement('p');
+      empty.className = 'small muted';
+      empty.textContent = 'No matching statuses found.';
+      root.append(empty);
+    }
+    for (const item of data.results) {
+      const el = document.createElement('div');
+      el.className = 'search-item';
+      const name = document.createElement('strong');
+      name.textContent = item.is_friend ? `★ ${item.display_name}` : item.display_name;
+      const status = document.createElement('p');
+      status.textContent = item.matching_status;
+      const subtitle = document.createElement('small');
+      subtitle.textContent = `@${item.username}${item.is_friend ? ' (friend)' : ''}`;
+      el.append(name, subtitle, status);
+      el.addEventListener('click', () => openConversation(item.id));
+      root.append(el);
+    }
+    $('search-results-section').hidden = false;
+  } catch (error) {
+    showNotice(formatError(error));
+  }
+}
+
+$('search-button').addEventListener('click', () => searchUsers($('search-input').value));
+$('search-input').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    searchUsers($('search-input').value);
+  }
+});
+
 if (state.token) boot();

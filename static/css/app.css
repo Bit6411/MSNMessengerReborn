@@ -31,6 +31,12 @@ summary { cursor: pointer; font-weight: bold; font-size: 13px; color: #235eaa; m
 .profile strong,.profile .muted { display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .online-dot { width: 11px; height: 11px; border-radius: 50%; background: #4fce54; box-shadow: 0 0 0 2px #d6f4d2; margin-left: auto; }
 .bio-edit { padding: 12px 13px; border-bottom: 1px solid #d4deee; }.label-small { color: #395b88; font-size: 11px; letter-spacing: .01em; }.inline-row { display: flex; gap: 4px; margin-top: 6px; }.inline-row input { flex: 1; width: 10px; }
+.search-box { padding: 12px 13px; border-bottom: 1px solid #d4deee; }
+.search-item { padding: 8px 10px; border-radius: 5px; cursor: pointer; border-bottom: 1px solid #e8edf5; }
+.search-item:hover { background: #d5e9ff; }
+.search-item strong { display: block; font-size: 13px; color: #1a305b; }
+.search-item small { display: block; font-size: 10px; color: #67809c; margin: 2px 0; }
+.search-item p { margin: 4px 0 0; font-size: 11px; color: #395b88; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
 .side-section { padding: 9px 10px; border-bottom: 1px solid #ccd7e9; }.side-section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #234f90; margin: 8px 4px 12px; }.count { color: #fff; background: #238e56; border-radius: 20px; padding: 2px 7px; font-size: 11px; }
 .buddy-list { display: grid; gap: 3px; }.buddy { border: 0; background: transparent; border-radius: 5px; padding: 9px 7px; display: flex; align-items: center; gap: 9px; text-align: left; color: #22375b; font-size: 13px; }
 .buddy:hover,.buddy.active { background: #d5e9ff; filter: none; }.buddy .mini-avatar { width: 27px; height: 27px; border-radius: 5px; background: #d0e9f5; display: grid; place-items: center; font-size: 15px; }.buddy-info { display: flex; flex-direction: column; min-width: 0; }.buddy-info span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.buddy-info small { font-size: 10px; color: #67809c; font-weight: 400; }.presence { background: #c5cbd5; border-radius: 50%; width: 8px; height: 8px; margin-left: auto; }.presence.live { background: #44ba49; }
