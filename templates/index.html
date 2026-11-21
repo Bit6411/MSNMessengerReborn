@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ app_name }}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css') }}">
+  <script src="{{ url_for('static', path='/js/app.js') }}" defer></script>
+</head>
+<body>
+  <div class="desktop">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">✳</span> Ping! <span class="brand-muted">messenger</span></div>
+      <span class="top-pill">Your internet, your friends.</span>
+    </header>
+
+    <section id="auth-panel" class="auth-shell">
+      <div class="window auth-window">
+        <div class="window-bar"><span>🔐 Sign in to Ping!</span><span>─ □ ×</span></div>
+        <div class="window-body">
+          <h1>Welcome back 👋</h1>
+          <p>Bring back the buddy list, the nudges and the late-night chats.</p>
+          <form id="login-form">
+            <label>Username <input name="username" required autocomplete="username" placeholder="zaki"></label>
+            <label>Password <input name="password" type="password" required autocomplete="current-password" placeholder="••••••••"></label>
+            <button class="primary" type="submit">Sign in</button>
+          </form>
+          <div class="separator">New here?</div>
+          <details>
+            <summary>Create an account</summary>
+            <form id="register-form">
+              <label>Username <input name="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+" autocomplete="username"></label>
+              <label>Display name <input name="display_name" required maxlength="60" autocomplete="nickname"></label>
+              <label>Password <input name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+              <button type="submit">Create my Ping! account</button>
+            </form>
+          </details>
+          <p class="muted small">Demo application • Register two accounts to test live chat—no database server needed.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="app-panel" class="app-shell" hidden>
+      <aside class="window sidebar">
+        <div class="window-bar"><span>✳ Buddy List</span><button id="logout" class="window-control" type="button">Sign out</button></div>
+        <div class="profile">
+          <div class="avatar">☺</div>
+          <div><strong id="my-name">...</strong><span class="muted" id="my-handle">@...</span></div>
+          <span class="online-dot" title="Online"></span>
+        </div>
+        <div class="bio-edit">
+          <label class="label-small" for="bio-input">Your profile bio</label>
+          <div class="inline-row"><input id="bio-input" maxlength="280" placeholder="A little about you..."><button id="save-bio" type="button">Save</button></div>
+        </div>
+        <section class="side-section">
+          <h2>🟢 Online <span id="online-count" class="count">0</span></h2>
+          <div id="online-users" class="buddy-list"><p class="muted small">Nobody online yet.</p></div>
+        </section>
+        <section class="side-section">
+          <h2>👥 People</h2>
+          <div id="users" class="buddy-list"></div>
+        </section>
+        <section class="side-section conversations-section">
+          <h2>💬 Conversations</h2>
+          <div id="conversations" class="buddy-list"></div>
+        </section>
+      </aside>
+
+      <main class="window chat-window">
+        <div class="window-bar"><span id="chat-title">💬 Ping! Messenger</span><span>─ □ ×</span></div>
+        <div id="chat-placeholder" class="chat-placeholder">
+          <span class="welcome-icon">✳</span>
+          <h1>You're online!</h1>
+          <p>Select a friend from your buddy list or reply to a status to start talking.</p>
+          <p class="muted small">Real-time messaging uses a WebSocket connection.</p>
+        </div>
+        <div id="chat-active" class="chat-active" hidden>
+          <div id="chat-context" class="chat-context" hidden></div>
+          <div class="history-controls"><button id="load-older" type="button" hidden>↑ Load older messages</button></div>
+          <div id="messages" class="messages" aria-live="polite"></div>
+          <form id="send-form" class="composer">
+            <label class="sr-only" for="message-text">Message</label>
+            <textarea id="message-text" rows="2" maxlength="4000" placeholder="Type a message... (Enter to send)"></textarea>
+            <div class="composer-tools">
+              <label class="upload-label">📎 Attach image / video
+                <input id="message-files" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm" multiple>
+              </label>
+              <span id="file-count" class="muted small"></span>
+              <button id="send-button" class="primary" type="submit">Send ➤</button>
+            </div>
+          </form>
+        </div>
+      </main>
+
+      <aside class="window updates-panel">
+        <div class="window-bar">📌 Status Updates</div>
+        <div class="status-compose">
+          <label class="label-small" for="status-text">What's on your mind?</label>
+          <form id="status-form"><textarea id="status-text" maxlength="280" rows="2" placeholder="Anyone up for a game?"></textarea><button type="submit">Post status</button></form>
+        </div>
+        <div id="statuses" class="statuses"></div>
+        <p class="muted small panel-hint">Replying to a status creates a private conversation linked to that exact status.</p>
+      </aside>
+    </section>
+
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+    <footer class="taskbar"><span>✳ Start</span><span id="connection-status">Offline</span><span>Ping! Beta</span></footer>
+  </div>
+</body>
+</html>
