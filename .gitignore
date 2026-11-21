@@ -1,4 +1,6 @@
 .env
+/env
+__MACOSX/
 .venv/
 .idea
 __pycache__/

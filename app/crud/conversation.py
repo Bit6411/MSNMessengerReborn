@@ -26,6 +26,7 @@ def to_read(db: Session, conversation: Conversation, user_id: int) -> Conversati
         other_user=db.get(User, peer_id),
         status=db.get(StatusPost, conversation.status_id) if conversation.status_id else None,
         created_at=conversation.created_at,
+        ended_by_me=bool(conversation.ended_by & (1 if user_id == conversation.user_low_id else 2)),
     )
 
 

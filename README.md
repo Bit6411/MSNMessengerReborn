@@ -90,7 +90,7 @@ python -m pip install -r requirements.txt
 
 If activation is blocked by PowerShell, use `.venv\Scripts\python.exe -m pip install -r requirements.txt`, then `.venv\Scripts\python.exe -m uvicorn ...`.
 
-**2. Configure `.env`:** An `.env` is already included. SQLite defaults to a file named `msnmessenger_reborn.db` in the project root:
+**2. Configure `.env`:** Copy `.env.example` to `.env` to keep a stable local configuration. SQLite defaults to a file named `msnmessenger_reborn.db` in the project root:
 
 ```env
 SQLITE_DB_PATH=msnmessenger_reborn.db
@@ -102,7 +102,7 @@ You can change the filename or use an absolute path. The app resolves relative p
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-Copy the printed value into `JWT_SECRET_KEY=...` in `.env`. **Never commit `.env`**.
+Copy the printed value into `JWT_SECRET_KEY=...` in `.env`. **Never commit `.env`**. Without a configured secret, the server generates one at startup and existing sessions expire when the process restarts.
 
 **3. Start the server:**
 

@@ -1,7 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
+from secrets import token_urlsafe
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
@@ -15,11 +16,18 @@ class Settings(BaseSettings):
 
     app_name: str = "Ping! Messenger"
     sqlite_db_path: str = "msnmessenger_reborn.db"
-    jwt_secret_key: SecretStr = SecretStr("REPLACE_WITH_YOUR_OWN_RANDOM_SECRET_48_CHARS_OR_LONGER")
+    jwt_secret_key: SecretStr = Field(default_factory=lambda: SecretStr(token_urlsafe(48)))
     access_token_expire_minutes: int = Field(default=1440, ge=1)
     cors_origins: str = "http://127.0.0.1:8000,http://localhost:8000"
     max_upload_mb: int = Field(default=50, ge=1, le=500)
     upload_dir: str = "uploads"
+
+    @field_validator("jwt_secret_key")
+    @classmethod
+    def replace_example_secret(cls, value: SecretStr) -> SecretStr:
+        if value.get_secret_value() in ("", "REPLACE_WITH_YOUR_OWN_RANDOM_SECRET_48_CHARS_OR_LONGER"):
+            return SecretStr(token_urlsafe(48))
+        return value
 
     @property
     def sqlite_path(self) -> Path:

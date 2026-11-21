@@ -16,3 +16,4 @@ class ConversationRead(BaseModel):
     other_user: UserPublic
     status: StatusRead | None
     created_at: datetime
+    ended_by_me: bool = False

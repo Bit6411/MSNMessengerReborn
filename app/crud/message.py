@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.crud.conversation import require_member
@@ -31,24 +31,6 @@ def create_message(
     db: Session, conversation_id: int, sender_id: int, payload: MessageCreate
 ) -> MessageRead:
     require_member(db, conversation_id, sender_id)
-    attachments = []
-    if payload.attachment_ids:
-        attachments = list(
-            db.scalars(
-                select(Attachment)
-                .where(Attachment.id.in_(payload.attachment_ids))
-                .with_for_update()
-            )
-        )
-        if len(attachments) != len(payload.attachment_ids):
-            raise HTTPException(status_code=400, detail="Invalid attachment ID")
-        for attachment in attachments:
-            if (
-                attachment.uploader_id != sender_id
-                or attachment.conversation_id != conversation_id
-                or attachment.message_id is not None
-            ):
-                raise HTTPException(status_code=400, detail="Attachment cannot be used")
     message = Message(
         conversation_id=conversation_id,
         sender_id=sender_id,
@@ -56,14 +38,23 @@ def create_message(
     )
     db.add(message)
     db.flush()
-    for attachment in attachments:
-        attachment.message_id = message.id
+    if payload.attachment_ids:
+        claim = db.execute(
+            update(Attachment)
+            .where(
+                Attachment.id.in_(payload.attachment_ids),
+                Attachment.uploader_id == sender_id,
+                Attachment.conversation_id == conversation_id,
+                Attachment.message_id.is_(None),
+            )
+            .values(message_id=message.id)
+        )
+        if claim.rowcount != len(payload.attachment_ids):
+            db.rollback()
+            raise HTTPException(status_code=400, detail="Attachment cannot be used")
+    result = to_read(message)
     db.commit()
-    # Re-query with all media loaded, returning a plain Pydantic object.
-    fresh = db.scalar(
-        select(Message).options(selectinload(Message.attachments)).where(Message.id == message.id)
-    )
-    return to_read(fresh)
+    return result
 
 
 def list_messages(

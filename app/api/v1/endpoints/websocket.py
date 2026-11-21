@@ -1,3 +1,5 @@
+from json import JSONDecodeError
+
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
@@ -40,15 +42,19 @@ async def chat_socket(websocket: WebSocket):
         return
 
     was_offline = await presence.connect(user_id, websocket)
-    if was_offline:
-        await presence.publish_presence()
-    else:
-        await websocket.send_json({"type": "presence.update",
-                                   "count": len(await presence.online_user_ids()),
-                                   "user_ids": await presence.online_user_ids()})
     try:
+        if was_offline:
+            await presence.publish_presence()
+        else:
+            user_ids = await presence.online_user_ids()
+            await websocket.send_json({"type": "presence.update",
+                                       "count": len(user_ids), "user_ids": user_ids})
         while True:
-            data = await websocket.receive_json()
+            try:
+                data = await websocket.receive_json()
+            except (JSONDecodeError, KeyError):
+                await websocket.send_json({"type": "message.error", "detail": "Expected a JSON text message"})
+                continue
             if not isinstance(data, dict) or data.get("type") != "message.send":
                 await websocket.send_json({"type": "message.error", "detail": "Unknown event"})
                 continue

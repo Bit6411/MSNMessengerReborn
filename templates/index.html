@@ -145,12 +145,21 @@
             <span class="status-edit-label">Shift pulse</span>
           </summary>
           <form id="status-form">
-            <label class="label-small" for="status-availability">State</label>
-            <select id="status-availability">
-              <option value="online">Online</option>
-              <option value="idle">Idle</option>
-              <option value="dnd">Do Not Disturb</option>
-            </select>
+            <fieldset class="status-options">
+              <legend class="label-small">State</legend>
+              <label class="status-option">
+                <input type="radio" name="availability" value="online" checked>
+                <span class="presence live" aria-hidden="true"></span>Online
+              </label>
+              <label class="status-option">
+                <input type="radio" name="availability" value="idle">
+                <span class="presence idle" aria-hidden="true"></span>Idle
+              </label>
+              <label class="status-option">
+                <input type="radio" name="availability" value="dnd">
+                <span class="presence dnd" aria-hidden="true"></span>Do Not Disturb
+              </label>
+            </fieldset>
             <label class="label-small" for="status-description">Pulse text (optional)</label>
             <input id="status-description" maxlength="280" placeholder="Working on python">
             <button id="save-status" class="flux-btn small" type="submit">Lock pulse</button>

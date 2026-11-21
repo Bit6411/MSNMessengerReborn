@@ -69,6 +69,12 @@ def test_dms_history_status_threads_and_permissions(client):
     assert status_response.status_code == 201, status_response.text
     status_id = status_response.json()["id"]
     assert client.get(f"/api/v1/users/{bob_id}/statuses", headers=alice).json()[0]["text"] == "Anyone coding?"
+    assert client.post("/api/v1/statuses", headers=bob, json={"text": "Meet at the CAFÉ"}).status_code == 201
+    result = client.get("/api/v1/users/search", params={"q": "café meet"}, headers=alice).json()
+    assert [(item["id"], item["matching_status"]) for item in result["results"]] == [
+        (bob_id, "Meet at the CAFÉ"),
+    ]
+    assert client.get("/api/v1/users/search?q=coding", headers=alice).json()["count"] == 1
 
     direct = client.post("/api/v1/conversations", headers=alice, json={"recipient_id": bob_id})
     assert direct.status_code == 200, direct.text
@@ -178,6 +184,8 @@ def test_live_websocket_presence_and_send(client):
             assert alice_ws.receive_json()["count"] == 2
             online = client.get("/api/v1/users/online", headers=alice).json()
             assert online["count"] == 2 and {x["id"] for x in online["users"]} == {alice_id, bob_id}
+            alice_ws.send_text("{")
+            assert alice_ws.receive_json()["type"] == "message.error"
             alice_ws.send_json({"type": "message.send", "conversation_id": direct_id, "text": "Live from my window"})
             alice_message = alice_ws.receive_json()
             bob_message = bob_ws.receive_json()

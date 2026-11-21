@@ -2,6 +2,7 @@ from collections.abc import Generator
 from pathlib import Path
 from types import SimpleNamespace
 import importlib
+from importlib.util import find_spec
 
 import pytest
 from fastapi.testclient import TestClient
@@ -41,7 +42,9 @@ def client(monkeypatch, tmp_path: Path) -> Generator[TestClient, None, None]:
     monkeypatch.setattr(media_module, "get_settings", lambda: fake_settings)
     monkeypatch.setattr(storage_module, "get_settings", lambda: fake_settings)
     presence._connections.clear()
-    with TestClient(app) as test_client:
+    # Use Uvicorn's preferred loop when installed. The platform default remains
+    # available on Windows, where uvloop is unavailable.
+    with TestClient(app, backend_options={"use_uvloop": find_spec("uvloop") is not None}) as test_client:
         yield test_client
     app.dependency_overrides.clear()
     presence._connections.clear()
